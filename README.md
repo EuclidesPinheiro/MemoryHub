@@ -70,6 +70,3 @@ MemoryHub/
     └── styles.css    # CSS styles
 ```
 
-## License
-
-MIT License - feel free to use this project for any purpose.
