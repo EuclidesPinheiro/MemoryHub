@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Playground - MemoryHub{% endblock %}
+
+{% block content %}
+<div class="page-container playground-container">
+    <div class="playground-grid">
+        <!-- Input Panel -->
+        <div class="panel input-panel">
+            <div class="panel-header">
+                <h3>Create Memory Item</h3>
+            </div>
+            <form id="memory-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>App ID *</label>
+                        <input type="text" name="app_id" value="my-assistant-bot" required>
+                    </div>
+                    <div class="form-group">
+                        <label>User ID</label>
+                        <input type="text" name="user_id" placeholder="Optional">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Namespace</label>
+                        <input type="text" name="namespace" value="default">
+                    </div>
+                    <div class="form-group">
+                        <label>TTL (Seconds)</label>
+                        <input type="number" name="ttl_seconds" value="2592000">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tags (Press Enter)</label>
+                    <div class="tags-input-container" id="tags-container">
+                        <span class="tag-chip">test <button type="button" onclick="removeTag(this)">×</button></span>
+                        <input type="text" id="tag-input" placeholder="Add tag..." onkeydown="addTag(event)">
+                    </div>
+                    <input type="hidden" name="tags" id="tags-hidden" value='["test"]'>
+                </div>
+
+                <div class="form-group">
+                    <label>Content *</label>
+                    <textarea name="content" rows="6" required
+                        placeholder="Enter text or JSON content to store..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary full-width">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13" />
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                        Store Memory
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Output Panel -->
+        <div class="panel output-panel">
+            <div class="panel-header">
+                <h3>API Response</h3>
+                <span class="status-badge" id="status-badge" style="display: none;">201 Created</span>
+            </div>
+            <div class="code-viewer">
+                <pre id="response-output">Waiting for request...</pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let tags = ['test'];
+
+    function updateTagsHidden() {
+        document.getElementById('tags-hidden').value = JSON.stringify(tags);
+    }
+
+    function addTag(event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+
+        const input = event.target;
+        const tag = input.value.trim();
+
+        if (tag && !tags.includes(tag)) {
+            tags.push(tag);
+            const chip = document.createElement('span');
+            chip.className = 'tag-chip';
+            chip.innerHTML = `${tag} <button type="button" onclick="removeTag(this)">×</button>`;
+            input.parentNode.insertBefore(chip, input);
+            updateTagsHidden();
+        }
+        input.value = '';
+    }
+
+    function removeTag(btn) {
+        const chip = btn.parentNode;
+        const tagText = chip.textContent.replace('×', '').trim();
+        tags = tags.filter(t => t !== tagText);
+        chip.remove();
+        updateTagsHidden();
+    }
+
+    document.getElementById('memory-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const form = e.target;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+
+        const data = {
+            app_id: form.app_id.value,
+            user_id: form.user_id.value || null,
+            namespace: form.namespace.value || 'default',
+            content: form.content.value,
+            tags: tags,
+            ttl_seconds: parseInt(form.ttl_seconds.value) || null
+        };
+
+        try {
+            const res = await fetch('/api/memories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await res.json();
+
+            document.getElementById('response-output').textContent = JSON.stringify(result, null, 2);
+            document.getElementById('status-badge').style.display = 'inline-block';
+
+            form.content.value = '';
+        } catch (err) {
+            document.getElementById('response-output').textContent = 'Error: ' + err.message;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            Store Memory
+        `;
+        }
+    });
+</script>
+{% endblock %}
